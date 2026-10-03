@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DITM Assistant</title>
+<link rel="icon" href="/static/favicon.jpg" type="image/jpeg">
+<style>
+  :root {
+    --navy: #07294d; --navy-2: #0a325c; --gold: #ffc600;
+    --bg: #ffffff; --panel: #f6f7f9; --text: #1f2328; --muted: #6b7280; --border: #e5e7eb;
+    --user-bg: #07294d; --user-text: #ffffff; --chip-bg: #ffffff;
+    --shadow-sm: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
+    --shadow-md: 0 8px 24px -6px rgba(16,24,40,.18), 0 2px 6px rgba(16,24,40,.06);
+    --shadow-lg: 0 18px 40px -12px rgba(16,24,40,.28);
+    --ring: 0 0 0 4px rgba(7,41,77,.12);
+    /* motion system: one set of curves and durations used everywhere */
+    --ease-out: cubic-bezier(.22, 1, .36, 1);      /* smooth deceleration */
+    --ease-in-out: cubic-bezier(.65, 0, .35, 1);
+    --ease-spring: cubic-bezier(.34, 1.4, .64, 1);  /* tiny overshoot, used sparingly */
+    --t-fast: 160ms; --t-med: 320ms; --t-slow: 560ms;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1720; --panel: #17212c; --text: #e6e8eb; --muted: #9aa4b2; --border: #2a3644;
+            --user-bg: #1c3b5e; --chip-bg: #17212c;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,.3); --shadow-md: 0 10px 28px -8px rgba(0,0,0,.55);
+            --shadow-lg: 0 20px 44px -12px rgba(0,0,0,.7); --ring: 0 0 0 4px rgba(255,198,0,.12); }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--bg); color: var(--text); display: flex; flex-direction: column;
+         font: 15px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+         -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+  button { -webkit-user-select: none; user-select: none; }
+  :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+  /* keyframes */
+  @keyframes fade-up   { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  @keyframes fade-down { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+  @keyframes pop-in    { from { opacity: 0; transform: scale(.86); } to { opacity: 1; transform: none; } }
+  @keyframes bubble-in { from { opacity: 0; transform: translateY(10px) scale(.96); } to { opacity: 1; transform: none; } }
+  @keyframes fade-in   { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes wave      { 0%, 60%, 100% { transform: translateY(0); opacity: .35; } 30% { transform: translateY(-5px); opacity: 1; } }
+  @keyframes caret     { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+  @keyframes float     { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+
+  /* top bar */
+  header { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+           padding: 10px 16px; background: var(--navy); color: #fff; flex-shrink: 0; position: relative; z-index: 2;
+           box-shadow: 0 1px 0 rgba(255,255,255,.04), 0 6px 18px -10px rgba(0,0,0,.5);
+           animation: fade-down var(--t-slow) var(--ease-out) both; }
+  .brand { min-width: 0; display: flex; align-items: center; gap: 10px; font-weight: 600; }
+  .logo { width: 40px; height: 40px; border-radius: 50%; background: #fff; object-fit: contain; padding: 2px;
+          flex-shrink: 0; display: block; }
+  .brand small { display: block; font-weight: 400; opacity: .75; font-size: 12px; line-height: 1.2; }
+
+  /* conversation */
+  main { flex: 1; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
+         scrollbar-color: var(--border) transparent; }
+  .thread { max-width: 780px; margin: 0 auto; padding: 24px 16px 8px; }
+  .msg { display: flex; gap: 12px; margin: 0 0 22px; }
+  .msg.user { justify-content: flex-end; }
+  .msg.user .bubble { background: var(--user-bg); color: var(--user-text); border-radius: 18px 18px 4px 18px;
+                      padding: 10px 16px; max-width: 80%; white-space: pre-wrap; word-wrap: break-word;
+                      box-shadow: var(--shadow-sm); transform-origin: bottom right;
+                      animation: bubble-in var(--t-med) var(--ease-out) both; }
+  .msg.bot .avatar { animation: pop-in var(--t-med) var(--ease-spring) both; }
+  .msg.bot .content { flex: 1; min-width: 0; animation: fade-in var(--t-med) var(--ease-out) 60ms both; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: #fff; object-fit: contain; padding: 1px;
+            flex-shrink: 0; margin-top: 2px; border: 1px solid var(--border); }
+  .msg.bot .bubble { word-wrap: break-word; }
+  .bubble p { margin: 0 0 10px; } .bubble p:last-child { margin-bottom: 0; }
+  .bubble ul, .bubble ol { margin: 4px 0 10px; padding-left: 22px; } .bubble li { margin: 3px 0; }
+  .bubble a { color: #2563eb; text-decoration-color: rgba(37,99,235,.35); text-underline-offset: 2px;
+              transition: text-decoration-color var(--t-fast) var(--ease-out); }
+  .bubble a:hover { text-decoration-color: currentColor; }
+  @media (prefers-color-scheme: dark) { .bubble a { color: #7cb3ff; text-decoration-color: rgba(124,179,255,.35); } }
+  .bubble code { background: var(--panel); padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+  .bubble h3, .bubble h4 { margin: 10px 0 6px; font-size: 15px; }
+  .caret { display: inline-block; width: 8px; height: 8px; margin-left: 4px; border-radius: 50%; background: var(--gold);
+           vertical-align: middle; animation: caret 1s var(--ease-in-out) infinite; }
+  .sources { margin-top: 10px; font-size: 12px; color: var(--muted); animation: fade-up var(--t-med) var(--ease-out) both; }
+  .typing { display: flex; gap: 5px; padding: 8px 0; }
+  .typing span { width: 7px; height: 7px; border-radius: 50%; background: var(--muted);
+                 animation: wave 1.1s var(--ease-in-out) infinite; }
+  .typing span:nth-child(2) { animation-delay: .14s; } .typing span:nth-child(3) { animation-delay: .28s; }
+
+  /* follow-up suggestions under the last answer */
+  .followups { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .chip { border: 1px solid var(--border); background: var(--chip-bg); color: var(--text); border-radius: 999px;
+          padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer; text-align: left;
+          animation: fade-up var(--t-med) var(--ease-out) both;
+          transition: transform var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out),
+                      background-color var(--t-fast) var(--ease-out), box-shadow var(--t-fast) var(--ease-out); }
+  .chip:hover { border-color: var(--navy); background: var(--panel); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+  @media (prefers-color-scheme: dark) { .chip:hover, .card:hover { border-color: rgba(255,198,0,.55); } }
+  .chip:active { transform: scale(.97); transition-duration: 80ms; }
+
+  /* welcome screen */
+  .welcome { max-width: 780px; margin: 0 auto; padding: 8vh 16px 16px; text-align: center;
+             transition: opacity 240ms var(--ease-in-out), transform 240ms var(--ease-in-out); }
+  .welcome.leaving { opacity: 0; transform: translateY(-10px) scale(.985); pointer-events: none; }
+  .welcome > * { animation: fade-up var(--t-slow) var(--ease-out) both; }
+  .welcome h1 { font-size: 28px; margin: 14px 0 6px; letter-spacing: -.01em; animation-delay: 80ms; }
+  .welcome p { color: var(--muted); margin: 0 0 28px; animation-delay: 140ms; }
+  .welcome .big-logo { width: 88px; height: 88px; margin: 0 auto; padding: 4px; box-shadow: var(--shadow-md);
+                       animation: pop-in var(--t-slow) var(--ease-spring) both, float 6s var(--ease-in-out) 1s infinite; }
+  .cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; text-align: left; animation: none !important; }
+  @media (max-width: 860px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .card { border: 1px solid var(--border); background: var(--chip-bg); border-radius: 14px; padding: 12px 14px;
+          cursor: pointer; font: inherit; color: var(--text); text-align: left; position: relative;
+          animation: fade-up var(--t-slow) var(--ease-out) both; animation-delay: calc(200ms + var(--i) * 45ms);
+          transition: transform var(--t-med) var(--ease-out), border-color var(--t-med) var(--ease-out),
+                      background-color var(--t-med) var(--ease-out), box-shadow var(--t-med) var(--ease-out); }
+  .card:hover { border-color: var(--navy); background: var(--panel); transform: translateY(-3px); box-shadow: var(--shadow-md); }
+  .card:active { transform: translateY(-1px) scale(.985); transition-duration: 90ms; }
+  .card b { display: block; font-size: 13px; color: var(--muted); font-weight: 600; margin-bottom: 2px;
+            transition: color var(--t-med) var(--ease-out); }
+  .card:hover b { color: var(--text); }
+
+  /* input */
+  footer { flex-shrink: 0; padding: 8px 16px 14px; background: var(--bg); position: relative;
+           animation: fade-up var(--t-slow) var(--ease-out) 120ms both; }
+  footer::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: 24px; pointer-events: none;
+                   background: linear-gradient(to bottom, transparent, var(--bg)); }
+  .composer-wrap { max-width: 780px; margin: 0 auto; position: relative; }
+  .composer { display: flex; align-items: flex-end; gap: 8px; border: 1px solid var(--border); border-radius: 16px;
+              background: var(--panel); padding: 8px 8px 8px 16px; box-shadow: var(--shadow-sm);
+              transition: border-color var(--t-med) var(--ease-out), box-shadow var(--t-med) var(--ease-out),
+                          background-color var(--t-med) var(--ease-out); }
+  .composer:focus-within { border-color: var(--navy); box-shadow: var(--ring), var(--shadow-md); background: var(--bg); }
+  @media (prefers-color-scheme: dark) { .composer:focus-within { border-color: rgba(255,198,0,.5); } }
+  textarea { flex: 1; border: none; outline: none; resize: none; background: transparent; color: var(--text);
+             font: inherit; max-height: 160px; padding: 6px 0; caret-color: var(--gold); }
+  textarea:focus-visible { outline: none; }
+  #send { width: 38px; height: 38px; border-radius: 11px; border: none; background: var(--navy); color: var(--gold);
+          cursor: pointer; display: grid; place-items: center; flex-shrink: 0;
+          transition: transform var(--t-fast) var(--ease-spring), opacity var(--t-med) var(--ease-out),
+                      background-color var(--t-fast) var(--ease-out), box-shadow var(--t-fast) var(--ease-out); }
+  #send svg { transition: transform var(--t-med) var(--ease-out); }
+  #send:not(:disabled):hover { background: var(--navy-2); box-shadow: var(--shadow-md); transform: translateY(-1px); }
+  #send:not(:disabled):hover svg { transform: translateY(-1px); }
+  #send:not(:disabled):active { transform: scale(.9); transition-duration: 80ms; }
+  #send:disabled { opacity: .35; cursor: default; transform: scale(.94); }
+  .hint { text-align: center; font-size: 12px; color: var(--muted); margin-top: 8px; }
+
+  /* type-ahead suggestions */
+  #autocomplete { position: absolute; left: 0; right: 0; bottom: calc(100% + 8px); background: var(--bg);
+                  border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-lg);
+                  overflow: hidden; z-index: 5; transform-origin: bottom center;
+                  opacity: 0; visibility: hidden; transform: translateY(6px) scale(.985);
+                  transition: opacity 180ms var(--ease-out), transform 220ms var(--ease-out), visibility 0s linear 220ms; }
+  #autocomplete.show { opacity: 1; visibility: visible; transform: none;
+                       transition: opacity 180ms var(--ease-out), transform 220ms var(--ease-out), visibility 0s; }
+  #autocomplete div { padding: 9px 14px; cursor: pointer; font-size: 14px; position: relative;
+                      transition: background-color var(--t-fast) var(--ease-out), padding-left var(--t-fast) var(--ease-out); }
+  #autocomplete [data-i]::before { content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 3px;
+                                   background: var(--gold); transform: scaleY(0); transition: transform var(--t-fast) var(--ease-out); }
+  #autocomplete div.active, #autocomplete [data-i]:hover { background: var(--panel); padding-left: 18px; }
+  #autocomplete div.active::before, #autocomplete [data-i]:hover::before { transform: scaleY(1); }
+  #autocomplete div mark { background: none; color: inherit; font-weight: 700; }
+  #autocomplete .ac-title { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+                            cursor: default; padding: 10px 14px 4px; }
+
+  @media (max-width: 600px) {
+    .brand small { display: none; }
+    .welcome { padding-top: 4vh; } .welcome h1 { font-size: 22px; }
+    .card { padding: 10px; font-size: 13px; }
+  }
+
+  /* respect users who turn animations off */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 1ms !important; animation-delay: 0ms !important;
+                             animation-iteration-count: 1 !important; transition-duration: 1ms !important; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <img class="logo" src="/static/ditm-logo.jpg" alt="DITM logo">
+    <div>DITM Assistant<small>Delhi Institute of Technology &amp; Management, Ganaur</small></div>
+  </div>
+</header>
+
+<main id="main">
+  <section class="welcome" id="welcome">
+    <img class="logo big-logo" src="/static/ditm-logo.jpg" alt="DITM logo">
+    <h1>How can I help you today?</h1>
+    <p>Ask me about admissions, courses, fees, syllabus, placements or campus life at DITM.</p>
+    <div class="cards" id="cards"></div>
+  </section>
+  <div class="thread" id="thread"></div>
+</main>
+
+<footer>
+  <div class="composer-wrap">
+    <div id="autocomplete"></div>
+    <div class="composer">
+      <textarea id="input" rows="1" placeholder="Ask anything about DITM..." autocomplete="off"></textarea>
+      <button id="send" title="Send" disabled>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+             stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+      </button>
+    </div>
+    <div class="hint">Answers come from DITM's official documents. Please confirm important details with the admissions office.</div>
+  </div>
+</footer>
+
+<script>
+const API = "";  // same server; set to "http://host:8000" if the page is hosted elsewhere
+
+// Suggested questions, grouped by topic. Used for the welcome cards, type-ahead and follow-ups.
+const SUGGESTIONS = {
+  Courses: ["What courses do you offer?", "Which B.Tech branches are available?", "Do you have diploma courses?",
+            "Is MBA available at DITM?", "What is the duration of BCA?"],
+  Fees: ["What is the B.Tech fee?", "What is the BCA fee?", "What is the BBA fee?", "What is the MBA fee?",
+         "What is the diploma fee?", "What is the fee refund policy?"],
+  Seats: ["How many seats are there in CSE?", "How many seats in AI & ML?", "How many seats in Mechanical?",
+          "Is DITM approved by AICTE?", "Which university is DITM affiliated to?"],
+  Syllabus: ["Which subjects are in 1st semester of CSE?", "Which subjects are in 3rd semester of CSE?",
+             "What is taught in B.Tech AI & ML?", "What do BCA students study in second year?",
+             "What subjects are in MBA first semester?"],
+  Admissions: ["What is the admission process?", "How can I apply online?", "What documents are needed for admission?",
+               "Are scholarships available?"],
+  Placements: ["Which companies came for placement?", "What is the highest package?", "What is the average package?",
+               "How many students got placed in IBM?"],
+  Campus: ["Is hostel available?", "What facilities are on campus?", "Is there a library?", "What is the attendance rule?",
+           "What are the exam rules?"],
+  Contact: ["What is the admission contact number?", "Where is DITM located?", "What is the email of DITM?",
+            "When is the international conference?"],
+};
+const WELCOME = [["Courses", 0], ["Fees", 0], ["Seats", 0], ["Syllabus", 1], ["Placements", 0], ["Admissions", 0],
+                 ["Campus", 0], ["Contact", 1]];
+const ALL = Object.entries(SUGGESTIONS).flatMap(([topic, qs]) => qs.map(q => ({ topic, q })));
+const TOPIC_WORDS = {
+  Courses: /course|branch|programme|program|diploma|mba|bba|bca|b\.?tech|duration/i,
+  Fees: /fee|fees|cost|refund|pay|kitni|paisa/i,
+  Seats: /seat|intake|aicte|approv|affiliat|university|mdu/i,
+  Syllabus: /syllabus|subject|semester|sem\b|study|taught|curriculum/i,
+  Admissions: /admission|apply|document|scholarship|eligib|form/i,
+  Placements: /placement|package|compan|recruit|job|lpa|placed/i,
+  Campus: /hostel|facilit|library|canteen|sport|attendance|exam|lab/i,
+  Contact: /contact|phone|number|email|address|location|where|conference/i,
+};
+
+const $ = id => document.getElementById(id);
+const main = $("main"), thread = $("thread"), welcome = $("welcome"), input = $("input"), send = $("send"), ac = $("autocomplete");
+let history = [], asked = new Set(), busy = false;
+
+// ---------- welcome cards ----------
+for (const [n, [topic, i]] of WELCOME.entries()) {
+  const b = document.createElement("button");
+  b.className = "card";
+  b.style.setProperty("--i", n);
+  b.innerHTML = `<b>${topic}</b>${escapeHtml(SUGGESTIONS[topic][i])}`;
+  b.onclick = () => ask(SUGGESTIONS[topic][i]);
+  $("cards").appendChild(b);
+}
+
+// ---------- tiny, safe markdown renderer ----------
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function inline(s) {
+  return escapeHtml(s)
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|[^*])\*([^*\s][^*]*?)\*(?!\*)/g, "$1<em>$2</em>")
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/(^|[\s(])(https?:\/\/[^\s<)]+[^\s<).,])/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>')
+    .replace(/(^|[\s(])([\w.+-]+@[\w-]+\.[\w.]+[a-z])/gi, '$1<a href="mailto:$2">$2</a>');
+}
+function markdown(text) {
+  const out = []; let list = null;
+  const close = () => { if (list) { out.push(`</${list}>`); list = null; } };
+  for (const raw of text.split("\n")) {
+    const line = raw.trimEnd();
+    let m;
+    if ((m = line.match(/^\s*[*\-•]\s+(.*)/))) {
+      if (list !== "ul") { close(); out.push("<ul>"); list = "ul"; }
+      out.push(`<li>${inline(m[1])}</li>`);
+    } else if ((m = line.match(/^\s*\d+[.)]\s+(.*)/))) {
+      if (list !== "ol") { close(); out.push("<ol>"); list = "ol"; }
+      out.push(`<li>${inline(m[1])}</li>`);
+    } else if ((m = line.match(/^#{1,4}\s+(.*)/))) {
+      close(); out.push(`<h4>${inline(m[1])}</h4>`);
+    } else if (line.trim() === "") {
+      close();
+    } else {
+      close(); out.push(`<p>${inline(line)}</p>`);
+    }
+  }
+  close();
+  return out.join("");
+}
+
+// ---------- messages ----------
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+function scrollDown(smooth = true) {
+  main.scrollTo({ top: main.scrollHeight, behavior: smooth && !REDUCED ? "smooth" : "auto" });
+}
+const nearBottom = () => main.scrollHeight - main.scrollTop - main.clientHeight < 140;
+
+function addUser(text) {
+  const el = document.createElement("div");
+  el.className = "msg user";
+  el.innerHTML = `<div class="bubble">${escapeHtml(text)}</div>`;
+  thread.appendChild(el);
+}
+function addBot() {
+  const el = document.createElement("div");
+  el.className = "msg bot";
+  el.innerHTML = `<img class="avatar" src="/static/ditm-logo.jpg" alt=""><div class="content"><div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div></div>`;
+  thread.appendChild(el);
+  return el.querySelector(".content");
+}
+
+function followupsFor(question) {
+  const topics = Object.keys(TOPIC_WORDS).filter(t => TOPIC_WORDS[t].test(question));
+  const pool = [...topics, ...Object.keys(SUGGESTIONS).filter(t => !topics.includes(t))];
+  const picks = [];
+  for (const t of pool) {
+    for (const q of SUGGESTIONS[t]) {
+      if (!asked.has(q.toLowerCase()) && q.toLowerCase() !== question.toLowerCase()) { picks.push(q); break; }
+    }
+    if (picks.length === 3) break;
+  }
+  return picks;
+}
+
+function showFollowups(content, question) {
+  document.querySelectorAll(".followups").forEach(f => f.remove());
+  const box = document.createElement("div");
+  box.className = "followups";
+  for (const q of followupsFor(question)) {
+    const c = document.createElement("button");
+    c.className = "chip"; c.textContent = q; c.onclick = () => ask(q);
+    c.style.animationDelay = `${120 + box.children.length * 60}ms`;
+    box.appendChild(c);
+  }
+  content.appendChild(box);
+}
+
+// Reveal streamed text at a steady pace (tokens arrive in uneven bursts), catching up quickly if far behind.
+function smoothRenderer(bubble) {
+  let target = "", shown = 0, raf = 0, done = false, resolveDone;
+  const finished = new Promise(r => resolveDone = r);
+  function paint(withCaret) {
+    bubble.innerHTML = markdown(target.slice(0, shown));
+    if (withCaret) {
+      const last = bubble.querySelector("p:last-child, li:last-child, h4:last-child") || bubble;
+      last.insertAdjacentHTML("beforeend", '<span class="caret"></span>');
+    }
+  }
+  function frame() {
+    const backlog = target.length - shown;
+    if (backlog > 0) {
+      shown += REDUCED ? backlog : Math.max(1, Math.ceil(backlog / 8));
+      const pinned = nearBottom();
+      paint(true);
+      if (pinned) main.scrollTop = main.scrollHeight;
+    }
+    if (done && shown >= target.length) { paint(false); raf = 0; resolveDone(); return; }
+    raf = requestAnimationFrame(frame);
+  }
+  return {
+    push(text) { target += text; if (!raf) raf = requestAnimationFrame(frame); },
+    end() { done = true; if (!raf) raf = requestAnimationFrame(frame); return finished; },
+  };
+}
+
+function leaveWelcome() {
+  if (welcome.style.display === "none") return Promise.resolve();
+  welcome.classList.add("leaving");
+  return new Promise(r => setTimeout(() => { welcome.style.display = "none"; welcome.classList.remove("leaving"); r(); },
+                                     REDUCED ? 0 : 240));
+}
+
+async function ask(question) {
+  question = question.trim();
+  if (!question || busy) return;
+  busy = true; hideAC();
+  input.value = ""; autosize(); send.disabled = true;
+  document.querySelectorAll(".followups").forEach(f => f.remove());
+  asked.add(question.toLowerCase());
+  await leaveWelcome();
+  addUser(question);
+  const content = addBot(), bubble = content.querySelector(".bubble");
+  scrollDown();
+
+  let answer = "", sources = [];
+  const view = smoothRenderer(bubble);
+  try {
+    const res = await fetch(API + "/chat/stream", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question, history }),
+    });
+    if (!res.ok) throw new Error(res.status);
+    const reader = res.body.getReader(), dec = new TextDecoder();
+    let buf = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split("\n"); buf = lines.pop();
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const data = JSON.parse(line);
+        if (data.token) { answer += data.token; view.push(data.token); }
+        if (data.sources) sources = data.sources;
+      }
+    }
+    if (!answer.trim()) throw new Error("empty");
+    await view.end();
+    history.push({ role: "user", content: question }, { role: "assistant", content: answer });
+    if (sources.length) {
+      const s = document.createElement("div");
+      s.className = "sources";
+      s.textContent = "Sources: " + [...new Set(sources.map(x => x.source.replace(/\.(pdf|md)$/, "").replace(/[_-]+/g, " ")))].join(" · ");
+      content.appendChild(s);
+    }
+  } catch (e) {
+    bubble.innerHTML = markdown("Sorry, I couldn't reach the assistant right now. Please try again, or call **9318389921** / email admissionditm26@gmail.com.");
+  }
+  showFollowups(content, question);
+  scrollDown();
+  busy = false;
+  send.disabled = !input.value.trim();
+  input.focus({ preventScroll: true });
+}
+
+// ---------- type-ahead suggestions ----------
+let acItems = [], acIndex = -1;
+function hideAC() { ac.classList.remove("show"); acItems = []; acIndex = -1; }
+function renderAC() {
+  const text = input.value.trim().toLowerCase();
+  if (text.length < 2 || busy) return hideAC();
+  const words = text.split(/\s+/).filter(w => w.length > 1);
+  const scored = ALL
+    .map(s => {
+      const q = s.q.toLowerCase();
+      let score = q.includes(text) ? 10 : 0;
+      for (const w of words) if (q.includes(w)) score += 2;
+      if (TOPIC_WORDS[s.topic].test(text)) score += 1;
+      return { ...s, score };
+    })
+    .filter(s => s.score >= 2 && s.q.toLowerCase() !== text)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 6);
+  if (!scored.length) return hideAC();
+  acItems = scored.map(s => s.q); acIndex = -1;
+  const re = new RegExp("(" + words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")", "gi");
+  ac.innerHTML = `<div class="ac-title">Suggestions</div>` +
+    scored.map((s, i) => `<div data-i="${i}">${escapeHtml(s.q).replace(re, "<mark>$1</mark>")}</div>`).join("");
+  ac.querySelectorAll("[data-i]").forEach(el => {
+    el.onmousedown = e => { e.preventDefault(); ask(acItems[+el.dataset.i]); };
+  });
+  ac.classList.add("show");
+}
+function moveAC(step) {
+  if (!acItems.length) return false;
+  acIndex = (acIndex + step + acItems.length) % acItems.length;
+  ac.querySelectorAll("[data-i]").forEach(el => el.classList.toggle("active", +el.dataset.i === acIndex));
+  return true;
+}
+
+// ---------- input handling ----------
+function autosize() { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 160) + "px"; }
+input.addEventListener("input", () => { autosize(); send.disabled = busy || !input.value.trim(); renderAC(); });
+input.addEventListener("keydown", e => {
+  if (e.key === "ArrowDown" && moveAC(1)) { e.preventDefault(); return; }
+  if (e.key === "ArrowUp" && moveAC(-1)) { e.preventDefault(); return; }
+  if (e.key === "Escape") { hideAC(); return; }
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    ask(acIndex >= 0 ? acItems[acIndex] : input.value);
+  }
+});
+input.addEventListener("blur", () => setTimeout(hideAC, 100));
+send.onclick = () => ask(input.value);
+input.focus();
+</script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+# Campus Facilities
+
+Source: https://www.ditmcollege.org/facilities.html
+
+Delhi Institute of Technology and Management Facilities Home Facilities Library DITM College provides a well-stocked library with thousands of books and journals. It supports academic and research activities for students and faculty. Canteen The canteen at DITM Ganaur serves hygienic and affordable meals. It provides a comfortable environment for students to relax and eat. Sports Ground DITM offers spacious sports grounds for cricket, football, and athletics. Regular tournaments and activities promote fitness and team spirit. Computer Lab DITM have Updated and Latest Hardware and Software Comuter Lab to develop AI Tools Training and Placement Office The TPO at DITM connects students with leading companies. It organizes training programs, internships, and placement drives. Women Cell DITM’s Women Cell ensures safety, empowerment, and equality for female students. It conducts seminars and awareness programs regularly. Anti Ragging Committee Strict anti-ragging policies are enforced at DITM. The committee ensures a safe and respectful atmosphere for all.

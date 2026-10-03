@@ -1,0 +1,5 @@
+ollama
+chromadb
+pymupdf4llm
+fastapi
+uvicorn
