@@ -1,0 +1,10 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Generated vector index (rebuild with: python ingest.py)
+db/
+
+# macOS
+.DS_Store
