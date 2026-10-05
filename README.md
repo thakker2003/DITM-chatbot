@@ -24,6 +24,19 @@ question ──embed──> top-6 similar chunks ──────────�
 | `app.py` | FastAPI server: `POST /chat`, `POST /chat/stream`, chat interface at `/` |
 | `static/index.html` | Full-page ChatGPT-style chat interface with suggestion cards, type-ahead suggestions and follow-up suggestions |
 
+##TECH STACK
+Layer	Technology
+Language	Python (plus HTML/JavaScript for the frontend)
+LLM (chat model)	gemma3:4b via Ollama (alternatives suggested: llama3.1:8b, qwen2.5:7b)
+Embedding model	nomic-embed-text via Ollama
+LLM runtime	Ollama, running fully locally with no paid API
+Vector database	Chroma (persisted in db/)
+Backend	FastAPI served with Uvicorn
+API endpoints	POST /chat, POST /chat/stream (streaming), and / for the UI
+Frontend	Single static index.html: a ChatGPT-style interface with suggestion cards, type-ahead and follow-up suggestions
+Data sources	PDFs (handbook, syllabus, AICTE letter, date sheet), curated Markdown files (fees, seats, placements, contacts), and website page text
+Ingestion	ingest.py: reads the files, converts tables to readable rows, splits them into chunks, embeds them and builds the Chroma DB
+
 ## Setup (one time)
 
 ```bash
